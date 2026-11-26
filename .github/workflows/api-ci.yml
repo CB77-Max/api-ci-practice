@@ -1,0 +1,39 @@
+name: API CI practice
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  api-tests:
+    name: API smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install Newman
+        run: npm install --global newman@6.2.3
+      - name: Run Postman collection
+        run: |
+          node server.js &
+          trap 'kill "$!"' EXIT
+          curl -fsS --retry 10 --retry-connrefused \
+            --retry-delay 1 http://127.0.0.1:3000/health
+          echo
+          newman run tests/smoke.postman_collection.json
+
+  staging:
+    name: Staging rehearsal
+    needs: api-tests
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Ready to deploy to staging"
